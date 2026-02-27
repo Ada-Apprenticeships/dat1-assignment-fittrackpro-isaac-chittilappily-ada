@@ -25,6 +25,10 @@ SELECT
   SUM(amount) AS total_revenue
 FROM payments
 WHERE
+  -- Not using BETWEEN for date ranges because you would risk
+  -- putting the wrong number for last day of the month
+  -- Using < means the range adjusts automatically,
+  -- even for February and leap years
   payment_date >= DATE('2024-11-01')
   AND payment_date < DATE('2025-03-01')
   AND payment_type = 'Monthly membership fee'

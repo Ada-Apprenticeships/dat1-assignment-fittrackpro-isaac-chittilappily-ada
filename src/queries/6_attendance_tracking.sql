@@ -40,7 +40,9 @@ LIMIT 1;
 SELECT
   l.name AS location_name,
   ROUND(
+    -- * 1.0 is shorthand for float conversion
     COUNT(a.attendance_id) * 1.0 / (
+      -- the + 1 is to avoid divide by zero errors
       JULIANDAY(MAX(a.check_in_time)) - JULIANDAY(MIN(a.check_in_time)) + 1
     ),
     2

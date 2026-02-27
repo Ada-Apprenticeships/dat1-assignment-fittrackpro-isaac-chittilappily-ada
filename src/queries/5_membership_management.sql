@@ -18,6 +18,7 @@ SELECT
   ROUND(
     AVG(
       (
+        -- Get time diff in seconds
         strftime('%s', a.check_out_time) - strftime('%s', a.check_in_time)
       ) / 60.0
     ),

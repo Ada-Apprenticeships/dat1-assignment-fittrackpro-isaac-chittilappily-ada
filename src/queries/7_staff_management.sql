@@ -18,6 +18,8 @@ FROM staff s
   JOIN personal_training_sessions se ON s.staff_id = se.staff_id
 WHERE
   s.position = 'Trainer'
+  -- Okay to use between here as it is a calculated range
+  -- rather than manually inputted
   AND se.session_date BETWEEN '2025-01-20' AND DATE('2025-01-20', '+30 days')
 GROUP BY s.staff_id
 HAVING session_count >= 1;
