@@ -20,21 +20,29 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE
   locations(
     location_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- Check name fields with a GLOB pattern
-    -- Allow certain special chars for address and location names
-    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
-    address VARCHAR(100) NOT NULL CHECK (address GLOB '[a-zA-Z0-9-."'',/ ]*'),
+    -- check name fields with a GLOB pattern
+    -- sqlite doesn't enforce VARCHAR restrictions
+    -- so we have to add a manual length check
+    name VARCHAR(50) NOT NULL CHECK (
+      name GLOB '[a-zA-Z0-9-."'',/ ]*'
+      AND LENGTH(name) BETWEEN 1 AND 50
+    ),
+    address VARCHAR(100) NOT NULL CHECK (
+      address GLOB '[a-zA-Z0-9-."'',/ ]*'
+      AND LENGTH(address) BETWEEN 1 AND 100
+    ),
     phone_number VARCHAR(20) NOT NULL CHECK (
       phone_number GLOB '[0-9 ]*'
       AND LENGTH(phone_number) BETWEEN 5 AND 20
     ),
-    email VARCHAR CHECK (email GLOB '?*@?*.*'),
+    email VARCHAR(50) CHECK (
+      email GLOB '?*@?*.*'
+      AND LENGTH(email) <= 50
+    ),
     opening_hours CHAR(11) NOT NULL CHECK (
-      -- Check that each time is valid
       opening_hours GLOB '[0-2][0-9]:[0-5][0-9]-[0-2][0-9]:[0-5][0-9]'
       AND TIME(SUBSTR(opening_hours, 1, 5)) IS NOT NULL
       AND TIME(SUBSTR(opening_hours, 7, 5)) IS NOT NULL
-      -- Check that the end time is after the start time
       AND SUBSTR(opening_hours, 7, 5) > SUBSTR(opening_hours, 1, 5)
     )
   );
@@ -47,12 +55,17 @@ CREATE TABLE
       -- But still accept cases like 'Anne-Marie' or "O'Niel"
       first_name GLOB '[a-zA-Z]*'
       AND first_name NOT GLOB '*[0-9/._+]*'
+      AND LENGTH(first_name) BETWEEN 1 AND 50
     ),
     last_name VARCHAR(50) NOT NULL CHECK (
       last_name GLOB '[a-zA-Z]*'
       AND last_name NOT GLOB '*[0-9/._+]*'
+      AND LENGTH(last_name) BETWEEN 1 AND 50
     ),
-    email VARCHAR CHECK (email GLOB '?*@?*.*'),
+    email VARCHAR(50) CHECK (
+      email GLOB '?*@?*.*'
+      AND LENGTH(email) <= 50
+    ),
     phone_number VARCHAR(20) NOT NULL CHECK (
       phone_number GLOB '[0-9 ]*'
       AND LENGTH(phone_number) BETWEEN 5 AND 20
@@ -67,8 +80,15 @@ CREATE TABLE
       DATE(join_date) = join_date
       AND join_date > date_of_birth
     ),
-    emergency_contact_name VARCHAR(50) NOT NULL,
-    emergency_contact_phone VARCHAR(50) NOT NULL
+    emergency_contact_name VARCHAR(50) NOT NULL CHECK (
+      emergency_contact_name GLOB '[a-zA-Z]*'
+      AND emergency_contact_name NOT GLOB '*[0-9/._+]*'
+      AND LENGTH(emergency_contact_name) BETWEEN 1 AND 50
+    ),
+    emergency_contact_phone VARCHAR(20) NOT NULL CHECK (
+      emergency_contact_phone GLOB '[0-9 ]*'
+      AND LENGTH(emergency_contact_phone) BETWEEN 5 AND 20
+    )
   );
 
 CREATE TABLE
@@ -77,12 +97,17 @@ CREATE TABLE
     first_name VARCHAR(50) NOT NULL CHECK (
       first_name GLOB '[a-zA-Z]*'
       AND first_name NOT GLOB '*[0-9/._+]*'
+      AND LENGTH(first_name) BETWEEN 1 AND 50
     ),
     last_name VARCHAR(50) NOT NULL CHECK (
       last_name GLOB '[a-zA-Z]*'
       AND last_name NOT GLOB '*[0-9/._+]*'
+      AND LENGTH(last_name) BETWEEN 1 AND 50
     ),
-    email VARCHAR CHECK (email GLOB '?*@?*.*'),
+    email VARCHAR(50) CHECK (
+      email GLOB '?*@?*.*'
+      AND LENGTH(email) <= 50
+    ),
     phone_number VARCHAR(20) NOT NULL CHECK (
       phone_number GLOB '[0-9 ]*'
       AND LENGTH(phone_number) BETWEEN 5 AND 20
@@ -104,7 +129,10 @@ CREATE TABLE
 CREATE TABLE
   equipment(
     equipment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
+    name VARCHAR(50) NOT NULL CHECK (
+      name GLOB '[a-zA-Z0-9-."'',/ ]*'
+      AND LENGTH(name) BETWEEN 1 AND 50
+    ),
     type TEXT NOT NULL CHECK (type IN ('Cardio', 'Strength')),
     purchase_date DATE NOT NULL,
     last_maintenance_date DATE NOT NULL CHECK (
@@ -121,10 +149,13 @@ CREATE TABLE
 CREATE TABLE
   classes(
     class_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
-    description VARCHAR(300) NOT NULL,
-    capacity INTEGER NOT NULL,
-    duration INTEGER NOT NULL,
+    name VARCHAR(50) NOT NULL CHECK (
+      name GLOB '[a-zA-Z0-9-."'',/ ]*'
+      AND LENGTH(name) BETWEEN 1 AND 50
+    ),
+    description TEXT,
+    capacity INTEGER NOT NULL CHECK (capacity > 0),
+    duration INTEGER NOT NULL CHECK (duration > 0 AND duration < 1440),
     location_id INTEGER NOT NULL,
     FOREIGN KEY (location_id) REFERENCES locations(location_id)
   );
