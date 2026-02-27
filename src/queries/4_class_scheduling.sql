@@ -54,7 +54,7 @@ LIMIT 1;
 
 -- 4.6 
 SELECT
-  AVG(attendance_count) AS avg_classes_per_member
+  ROUND(AVG(attendance_count), 2) AS avg_classes_per_member
 FROM (
     SELECT COUNT(*) AS attendance_count
     FROM class_attendance
