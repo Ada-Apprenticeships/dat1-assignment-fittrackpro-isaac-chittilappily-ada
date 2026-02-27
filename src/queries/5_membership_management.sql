@@ -4,10 +4,10 @@
 -- 5.1 
 SELECT
   m.member_id,
-  first_name,
-  last_name,
-  type,
-  join_date
+  m.first_name,
+  m.last_name,
+  ms.type,
+  m.join_date
 FROM members m
   JOIN memberships ms ON m.member_id = ms.member_id
 WHERE ms.status = 'Active';
@@ -37,4 +37,4 @@ SELECT
   ms.end_date
 FROM memberships ms
   JOIN members m ON m.member_id = ms.member_id
-WHERE end_date < DATE('2026-01-01')
+WHERE ms.end_date < DATE('2026-01-01')

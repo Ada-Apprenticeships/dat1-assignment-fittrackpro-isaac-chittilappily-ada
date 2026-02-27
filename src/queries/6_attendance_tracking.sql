@@ -16,14 +16,14 @@ WHERE member_id = 5;
 
 -- 6.3 
 SELECT
-  CASE weekday_num
-    WHEN '0' THEN 'Sunday'
-    WHEN '1' THEN 'Monday'
-    WHEN '2' THEN 'Tuesday'
-    WHEN '3' THEN 'Wednesday'
-    WHEN '4' THEN 'Thursday'
-    WHEN '5' THEN 'Friday'
-    WHEN '6' THEN 'Saturday'
+  CASE CAST(weekday_num AS INTEGER)
+    WHEN 0 THEN 'Sunday'
+    WHEN 1 THEN 'Monday'
+    WHEN 2 THEN 'Tuesday'
+    WHEN 3 THEN 'Wednesday'
+    WHEN 4 THEN 'Thursday'
+    WHEN 5 THEN 'Friday'
+    WHEN 6 THEN 'Saturday'
   END as day_of_week,
   visit_count
 FROM (
@@ -32,7 +32,7 @@ FROM (
       COUNT(*) as visit_count
     FROM attendance
     GROUP BY weekday_num
-  )
+  ) as daily_stats
 ORDER BY visit_count DESC
 LIMIT 1;
 

@@ -4,8 +4,8 @@
 -- 4.1 
 SELECT
   cl.class_id,
-  name AS class_name,
-  CONCAT(s.first_name, ' ', s.last_name) AS instructor_name
+  cl.name AS class_name,
+  s.first_name || ' ' || s.last_name AS instructor_name
 FROM classes cl
   JOIN class_schedule cs ON cl.class_id = cs.class_id
   JOIN staff s ON cs.staff_id = s.staff_id
@@ -27,7 +27,12 @@ WHERE DATE(s.start_time) = '2025-02-01'
 GROUP BY s.schedule_id;
 
 -- 4.3 
-INSERT INTO class_attendance (schedule_id, member_id, attendance_status)
+INSERT INTO
+  class_attendance (
+    schedule_id,
+    member_id,
+    attendance_status
+  )
 VALUES (1, 11, 'Registered');
 
 -- 4.4 
@@ -56,4 +61,4 @@ FROM (
     WHERE
       attendance_status IN ('Attended', 'Registered')
     GROUP BY member_id
-  );
+  ) AS member_counts;

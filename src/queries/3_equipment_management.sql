@@ -13,16 +13,18 @@ WHERE
 
 -- 3.2 
 SELECT
-  type as equipment_type,
-  COUNT(*) as count
+  type AS equipment_type,
+  COUNT(*) AS count
 FROM equipment
 GROUP BY type;
 
 -- 3.3 
 SELECT
-  type as equipment_type,
-  AVG(
-    JULIANDAY(DATE()) - JULIANDAY(purchase_date)
-  ) as average
+  type AS equipment_type,
+  ROUND(
+    AVG(
+      JULIANDAY('now') - JULIANDAY(purchase_date)
+    )
+  ) AS average
 FROM equipment
 GROUP BY type;

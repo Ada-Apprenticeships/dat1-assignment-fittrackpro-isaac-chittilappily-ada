@@ -17,6 +17,7 @@ SELECT
 FROM staff s
   JOIN personal_training_sessions se ON s.staff_id = se.staff_id
 WHERE
-  se.session_date BETWEEN '2025-01-20' AND DATE('2025-01-20', '+30 days')
+  s.position = 'Trainer'
+  AND se.session_date BETWEEN '2025-01-20' AND DATE('2025-01-20', '+30 days')
 GROUP BY s.staff_id
 HAVING session_count >= 1;
