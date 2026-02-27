@@ -20,23 +20,32 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE
   locations(
     location_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-.",/ ]*'),
-    address VARCHAR(100) NOT NULL CHECK (address GLOB '[a-zA-Z0-9-.",/ ]*'),
+    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
+    address VARCHAR(100) NOT NULL CHECK (address GLOB '[a-zA-Z0-9-."'',/ ]*'),
     phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
-    email VARCHAR CHECK (email LIKE '%@%'),
+    email VARCHAR CHECK (email GLOB '?*@?*.*'),
     opening_hours VARCHAR(11) NOT NULL CHECK (
       opening_hours GLOB '[0-2][0-9]:[0-5][0-9]-[0-2][0-9]:[0-5][0-9]'
+      AND TIME(SUBSTR(opening_hours, 1, 5)) IS NOT NULL
+      AND TIME(SUBSTR(opening_hours, 7, 5)) IS NOT NULL
+      AND SUBSTR(opening_hours, 7, 5) > SUBSTR(opening_hours, 1, 5)
     )
   );
 
 CREATE TABLE
   members(
     member_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    email VARCHAR CHECK (email LIKE '%@%'),
+    first_name VARCHAR(50) NOT NULL CHECK (
+      first_name GLOB '[a-zA-Z]*'
+      AND first_name NOT GLOB '*[0-9/._+]*'
+    ),
+    last_name VARCHAR(50) NOT NULL CHECK (
+      last_name GLOB '[a-zA-Z]*'
+      AND last_name NOT GLOB '*[0-9/._+]*'
+    ),
+    email VARCHAR CHECK (email GLOB '?*@?*.*'),
     phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
-    date_of_birth DATE NOT NULL,
+    date_of_birth DATE NOT NULL CHECK (date_of_birth < join_date),
     join_date DATE NOT NULL,
     emergency_contact_name VARCHAR(50) NOT NULL,
     emergency_contact_phone VARCHAR(50) NOT NULL
@@ -45,9 +54,15 @@ CREATE TABLE
 CREATE TABLE
   staff(
     staff_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    email VARCHAR CHECK (email LIKE '%@%'),
+    first_name VARCHAR(50) NOT NULL CHECK (
+      first_name GLOB '[a-zA-Z]*'
+      AND first_name NOT GLOB '*[0-9/._+]*'
+    ),
+    last_name VARCHAR(50) NOT NULL CHECK (
+      last_name GLOB '[a-zA-Z]*'
+      AND last_name NOT GLOB '*[0-9/._+]*'
+    ),
+    email VARCHAR CHECK (email GLOB '?*@?*.*'),
     phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
     position TEXT NOT NULL CHECK (
       position IN (
@@ -58,26 +73,28 @@ CREATE TABLE
       )
     ),
     hire_date DATE NOT NULL,
-    location_id INTEGER NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(location_id)
+    location_id INTEGER,
+    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE
+    SET NULL
   );
 
 CREATE TABLE
   equipment(
     equipment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(50) NOT NULL,
+    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
     type TEXT NOT NULL CHECK (type IN ('Cardio', 'Strength')),
     purchase_date DATE NOT NULL,
     last_maintenance_date DATE NOT NULL,
     next_maintenance_date DATE NOT NULL,
-    location_id INTEGER NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(location_id)
+    location_id INTEGER,
+    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE
+    SET NULL
   );
 
 CREATE TABLE
   classes(
     class_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(50) NOT NULL,
+    name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
     description VARCHAR(300) NOT NULL,
     capacity INTEGER NOT NULL,
     duration INTEGER NOT NULL,
@@ -118,6 +135,7 @@ CREATE TABLE
     check_in_time DATETIME NOT NULL CHECK (DATETIME(check_in_time) = check_in_time),
     check_out_time DATETIME CHECK (
       DATETIME(check_out_time) = check_out_time
+      AND check_out_time > check_in_time
     ),
     FOREIGN KEY (member_id) REFERENCES members(member_id),
     FOREIGN KEY (location_id) REFERENCES locations(location_id)
@@ -131,8 +149,8 @@ CREATE TABLE
     attendance_status TEXT NOT NULL CHECK (
       attendance_status IN ('Registered', 'Attended', 'Unattended')
     ),
-    FOREIGN KEY (schedule_id) REFERENCES class_schedule(schedule_id),
-    FOREIGN KEY (member_id) REFERENCES members(member_id)
+    FOREIGN KEY (schedule_id) REFERENCES class_schedule(schedule_id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
   );
 
 CREATE TABLE
@@ -152,7 +170,7 @@ CREATE TABLE
     payment_type TEXT NOT NULL CHECK (
       payment_type IN ('Monthly membership fee', 'Day pass')
     ),
-    FOREIGN KEY (member_id) REFERENCES members(member_id)
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE RESTRICT
   );
 
 CREATE TABLE
@@ -161,8 +179,11 @@ CREATE TABLE
     member_id INTEGER NOT NULL,
     staff_id INTEGER NOT NULL,
     session_date DATE NOT NULL CHECK (DATE(session_date) = session_date),
-    start_time TIME NOT NULL CHECK (TIME(start_time = start_time)),
-    end_time TIME NOT NULL CHECK (TIME(end_time) = end_time),
+    start_time TIME NOT NULL CHECK (TIME(start_time) = start_time),
+    end_time TIME NOT NULL CHECK (
+      TIME(end_time) = end_time
+      AND end_time > start_time
+    ),
     notes TEXT,
     FOREIGN KEY (member_id) REFERENCES members(member_id),
     FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
@@ -191,7 +212,7 @@ CREATE TABLE
       bmi > 0
       and bmi < 100
     ),
-    FOREIGN KEY (member_id) REFERENCES members(member_id)
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
   );
 
 CREATE TABLE
@@ -203,15 +224,59 @@ CREATE TABLE
     ),
     description TEXT,
     staff_id INTEGER NOT NULL,
-    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id),
+    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
   );
 
-CREATE TRIGGER members_trim_name_insert AFTER INSERT ON members BEGIN
+CREATE TRIGGER members_trim_insert AFTER INSERT ON members BEGIN
 UPDATE members
 SET
-  first_name = TRIM(new.first_name),
-  last_name = TRIM(new.last_name)
-WHERE member_id = new.member_id;
+  first_name = TRIM(NEW.first_name),
+  last_name = TRIM(NEW.last_name),
+  email = TRIM(NEW.email),
+  emergency_contact_name = TRIM(NEW.emergency_contact_name)
+WHERE member_id = NEW.member_id;
 
 END;
+
+CREATE TRIGGER staff_trim_insert AFTER INSERT ON staff BEGIN
+UPDATE staff
+SET
+  first_name = TRIM(NEW.first_name),
+  last_name = TRIM(NEW.last_name),
+  email = TRIM(NEW.email)
+WHERE staff_id = NEW.staff_id;
+
+END;
+
+CREATE TRIGGER locations_trim_insert AFTER INSERT ON locations BEGIN
+UPDATE locations
+SET
+  name = TRIM(NEW.name),
+  address = TRIM(NEW.address),
+  email = TRIM(NEW.email)
+WHERE location_id = NEW.location_id;
+
+END;
+
+CREATE TRIGGER prevent_duplicate_active_membership BEFORE INSERT ON memberships
+WHEN NEW.status = 'Active' BEGIN
+SELECT
+  CASE
+    WHEN (
+      SELECT COUNT(*)
+      FROM memberships
+      WHERE
+        member_id = NEW.member_id
+        AND status = 'Active'
+    ) > 0 THEN RAISE(
+      ABORT,
+      'member already has an active membership'
+    )
+  END;
+
+END;
+
+CREATE INDEX idx_member_email ON members(email);
+
+CREATE INDEX idx_staff_location ON staff(location_id);
