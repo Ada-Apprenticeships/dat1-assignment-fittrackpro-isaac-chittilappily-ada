@@ -25,6 +25,6 @@ SELECT
     AVG(
       JULIANDAY('now') - JULIANDAY(purchase_date)
     )
-  ) AS average
+  ) AS avg_age_days
 FROM equipment
 GROUP BY type;

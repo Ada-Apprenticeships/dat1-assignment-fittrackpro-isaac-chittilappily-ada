@@ -271,7 +271,7 @@ SELECT
         AND status = 'Active'
     ) > 0 THEN RAISE(
       ABORT,
-      'member already has an active membership'
+      'Member already has an active membership'
     )
   END;
 

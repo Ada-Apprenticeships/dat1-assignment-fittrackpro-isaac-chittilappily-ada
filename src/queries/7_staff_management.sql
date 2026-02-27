@@ -6,7 +6,7 @@ SELECT
   staff_id,
   first_name,
   last_name,
-  position
+  position AS role
 FROM staff;
 
 -- 7.2 

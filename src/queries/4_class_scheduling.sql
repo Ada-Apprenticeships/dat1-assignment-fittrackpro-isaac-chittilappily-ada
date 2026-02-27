@@ -42,7 +42,7 @@ WHERE member_id = 3 AND schedule_id = 7;
 -- 4.5 
 SELECT
   c.class_id,
-  c.name,
+  c.name as class_name,
   COUNT(ca.class_attendance_id) AS registration_count
 FROM classes c
   JOIN class_schedule cs ON c.class_id = cs.class_id
