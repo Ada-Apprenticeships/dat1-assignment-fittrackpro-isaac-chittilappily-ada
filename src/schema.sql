@@ -24,9 +24,12 @@ CREATE TABLE
     -- Allow certain special chars for address and location names
     name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
     address VARCHAR(100) NOT NULL CHECK (address GLOB '[a-zA-Z0-9-."'',/ ]*'),
-    phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
+    phone_number VARCHAR(20) NOT NULL CHECK (
+      phone_number GLOB '[0-9 ]*'
+      AND LENGTH(phone_number) BETWEEN 5 AND 20
+    ),
     email VARCHAR CHECK (email GLOB '?*@?*.*'),
-    opening_hours VARCHAR(11) NOT NULL CHECK (
+    opening_hours CHAR(11) NOT NULL CHECK (
       -- Check that each time is valid
       opening_hours GLOB '[0-2][0-9]:[0-5][0-9]-[0-2][0-9]:[0-5][0-9]'
       AND TIME(SUBSTR(opening_hours, 1, 5)) IS NOT NULL
@@ -50,17 +53,20 @@ CREATE TABLE
       AND last_name NOT GLOB '*[0-9/._+]*'
     ),
     email VARCHAR CHECK (email GLOB '?*@?*.*'),
-    phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
+    phone_number VARCHAR(20) NOT NULL CHECK (
+      phone_number GLOB '[0-9 ]*'
+      AND LENGTH(phone_number) BETWEEN 5 AND 20
+    ),
     -- Check date validity by comparing against
     -- original with DATE()
-    -- Checking if DATE() doesnt returns NULL is not enough
+    -- Checking if DATE() returns NULL is not enough
     -- as DATE(2025-04-31) internally converts to 2025-05-01
-    -- despite being an invalid date
-    date_of_birth DATE NOT NULL CHECK (
-      DATE(date_of_birth) = date_of_birth
-      AND date_of_birth < join_date
+    -- and gets accepted, despite being an invalid date
+    date_of_birth DATE NOT NULL CHECK (DATE(date_of_birth) = date_of_birth),
+    join_date DATE NOT NULL CHECK (
+      DATE(join_date) = join_date
+      AND join_date > date_of_birth
     ),
-    join_date DATE NOT NULL CHECK (DATE(join_date) = join_date),
     emergency_contact_name VARCHAR(50) NOT NULL,
     emergency_contact_phone VARCHAR(50) NOT NULL
   );
@@ -77,7 +83,10 @@ CREATE TABLE
       AND last_name NOT GLOB '*[0-9/._+]*'
     ),
     email VARCHAR CHECK (email GLOB '?*@?*.*'),
-    phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
+    phone_number VARCHAR(20) NOT NULL CHECK (
+      phone_number GLOB '[0-9 ]*'
+      AND LENGTH(phone_number) BETWEEN 5 AND 20
+    ),
     position TEXT NOT NULL CHECK (
       position IN (
         'Trainer',
@@ -126,7 +135,10 @@ CREATE TABLE
     class_id INTEGER NOT NULL,
     staff_id INTEGER NOT NULL,
     start_time DATETIME NOT NULL CHECK (DATETIME(start_time) = start_time),
-    end_time DATETIME NOT NULL CHECK (DATETIME(end_time) = end_time),
+    end_time DATETIME NOT NULL CHECK (
+      DATETIME(end_time) = end_time
+      AND end_time > start_time
+    ),
     FOREIGN KEY (class_id) REFERENCES classes(class_id),
     FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
   );
@@ -139,7 +151,7 @@ CREATE TABLE
     start_date DATE NOT NULL CHECK (DATE(start_date) = start_date),
     end_date DATE NOT NULL CHECK (
       DATE(end_date) = end_date
-      AND DATE(end_date) > DATE(start_date)
+      AND end_date > start_date
     ),
     status TEXT NOT NULL CHECK (status IN ('Active', 'Inactive')),
     FOREIGN KEY (member_id) REFERENCES members(member_id)
@@ -217,20 +229,16 @@ CREATE TABLE
       DATE(measurement_date) = measurement_date
     ),
     weight FLOAT NOT NULL CHECK (
-      weight > 0
-      AND weight < 500
+      weight BETWEEN 20.0 AND 500.0
     ),
     body_fat_percentage FLOAT NOT NULL CHECK (
-      body_fat_percentage > 0
-      AND body_fat_percentage < 100
+      body_fat_percentage BETWEEN 1.0 AND 70.0
     ),
     muscle_mass FLOAT NOT NULL CHECK (
-      muscle_mass > 0
-      AND muscle_mass < 500
+      muscle_mass BETWEEN 10.0 AND 400.0
     ),
     bmi FLOAT NOT NULL CHECK (
-      bmi > 0
-      and bmi < 100
+      bmi BETWEEN 5.0 AND 95.0
     ),
     FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
   );
@@ -248,7 +256,28 @@ CREATE TABLE
     FOREIGN KEY (staff_id) REFERENCES staff(staff_id)
   );
 
+
+-- Sanitation triggers for critical tables
+-- Ensures safer querying of database by trimming whitespace from text fields
 CREATE TRIGGER members_trim_insert AFTER INSERT ON members BEGIN
+UPDATE members
+SET
+  first_name = TRIM(NEW.first_name),
+  last_name = TRIM(NEW.last_name),
+  email = TRIM(NEW.email),
+  emergency_contact_name = TRIM(NEW.emergency_contact_name)
+WHERE member_id = NEW.member_id;
+
+END;
+
+CREATE TRIGGER members_trim_update AFTER
+UPDATE
+  ON members FOR EACH ROW
+  WHEN (
+    NEW.first_name != OLD.first_name
+    OR NEW.last_name != OLD.last_name
+    OR NEW.email != OLD.email
+  ) BEGIN
 UPDATE members
 SET
   first_name = TRIM(NEW.first_name),
@@ -269,6 +298,23 @@ WHERE staff_id = NEW.staff_id;
 
 END;
 
+CREATE TRIGGER staff_trim_update AFTER
+UPDATE
+  ON staff FOR EACH ROW
+  WHEN (
+    NEW.first_name != OLD.first_name
+    OR NEW.last_name != OLD.last_name
+    OR NEW.email != OLD.email
+  ) BEGIN
+UPDATE staff
+SET
+  first_name = TRIM(NEW.first_name),
+  last_name = TRIM(NEW.last_name),
+  email = TRIM(NEW.email)
+WHERE staff_id = NEW.staff_id;
+
+END;
+
 CREATE TRIGGER locations_trim_insert AFTER INSERT ON locations BEGIN
 UPDATE locations
 SET
@@ -279,6 +325,25 @@ WHERE location_id = NEW.location_id;
 
 END;
 
+CREATE TRIGGER locations_trim_update AFTER
+UPDATE
+  ON locations FOR EACH ROW
+  WHEN (
+    NEW.name != OLD.name
+    OR NEW.address != OLD.address
+    OR NEW.email != OLD.email
+  ) BEGIN
+UPDATE locations
+SET
+  name = TRIM(NEW.name),
+  address = TRIM(NEW.address),
+  email = TRIM(NEW.email)
+WHERE location_id = NEW.location_id;
+
+END;
+
+
+-- Stop members from having more than 1 membership active at once
 CREATE TRIGGER prevent_duplicate_active_membership BEFORE INSERT ON memberships
 WHEN NEW.status = 'Active' BEGIN
 SELECT
@@ -297,6 +362,48 @@ SELECT
 
 END;
 
+-- Disallow registering someone for a class that is at capacity
+CREATE TRIGGER check_class_capacity_insert BEFORE INSERT ON class_attendance BEGIN
+SELECT
+  CASE
+    WHEN (
+      SELECT COUNT(*)
+      FROM class_attendance
+      WHERE
+        schedule_id = NEW.schedule_id
+        AND attendance_status = 'Registered'
+    ) >= (
+      SELECT c.capacity
+      FROM classes c
+        JOIN class_schedule cs ON c.class_id = cs.class_id
+      WHERE
+        cs.schedule_id = NEW.schedule_id
+    ) THEN RAISE(
+      ABORT,
+      'This class is already at max capacity'
+    )
+  END;
+
+END;
+
+-- Disallow adding a maintenance date before the purchase date of equipment
+CREATE TRIGGER validate_maintenance_date BEFORE INSERT ON equipment_maintenance_log BEGIN
+SELECT
+  CASE
+    WHEN NEW.maintenance_date < (
+      SELECT purchase_date
+      FROM equipment
+      WHERE
+        equipment_id = NEW.equipment_id
+    ) THEN RAISE(
+      ABORT,
+      'Maintenance date cannot be earlier than purchase date'
+    )
+  END;
+
+END;
+
+-- Indexes for more performant queries
 CREATE INDEX idx_member_email ON members(email);
 
 CREATE INDEX idx_staff_location ON staff(location_id);
