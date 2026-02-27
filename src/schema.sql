@@ -20,14 +20,18 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE
   locations(
     location_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- Check name fields with a GLOB pattern
+    -- Allow certain special chars for address and location names
     name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
     address VARCHAR(100) NOT NULL CHECK (address GLOB '[a-zA-Z0-9-."'',/ ]*'),
     phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
     email VARCHAR CHECK (email GLOB '?*@?*.*'),
     opening_hours VARCHAR(11) NOT NULL CHECK (
+      -- Check that each time is valid
       opening_hours GLOB '[0-2][0-9]:[0-5][0-9]-[0-2][0-9]:[0-5][0-9]'
       AND TIME(SUBSTR(opening_hours, 1, 5)) IS NOT NULL
       AND TIME(SUBSTR(opening_hours, 7, 5)) IS NOT NULL
+      -- Check that the end time is after the start time
       AND SUBSTR(opening_hours, 7, 5) > SUBSTR(opening_hours, 1, 5)
     )
   );
@@ -36,6 +40,8 @@ CREATE TABLE
   members(
     member_id INTEGER PRIMARY KEY AUTOINCREMENT,
     first_name VARCHAR(50) NOT NULL CHECK (
+      -- Double GLOB to reject unreasonable names
+      -- But still accept cases like 'Anne-Marie' or "O'Niel"
       first_name GLOB '[a-zA-Z]*'
       AND first_name NOT GLOB '*[0-9/._+]*'
     ),
@@ -45,8 +51,16 @@ CREATE TABLE
     ),
     email VARCHAR CHECK (email GLOB '?*@?*.*'),
     phone_number VARCHAR(13) NOT NULL CHECK (phone_number GLOB '[0-9 ]*'),
-    date_of_birth DATE NOT NULL CHECK (date_of_birth < join_date),
-    join_date DATE NOT NULL,
+    -- Check date validity by comparing against
+    -- original with DATE()
+    -- Checking if DATE() doesnt returns NULL is not enough
+    -- as DATE(2025-04-31) internally converts to 2025-05-01
+    -- despite being an invalid date
+    date_of_birth DATE NOT NULL CHECK (
+      DATE(date_of_birth) = date_of_birth
+      AND date_of_birth < join_date
+    ),
+    join_date DATE NOT NULL CHECK (DATE(join_date) = join_date),
     emergency_contact_name VARCHAR(50) NOT NULL,
     emergency_contact_phone VARCHAR(50) NOT NULL
   );
@@ -72,10 +86,10 @@ CREATE TABLE
         'Maintenance'
       )
     ),
-    hire_date DATE NOT NULL,
+    hire_date DATE NOT NULL CHECK (DATE(hire_date) = hire_date),
     location_id INTEGER,
-    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE
-    SET NULL
+    -- Deleting a location should set staff location to NULL
+    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE SET NULL
   );
 
 CREATE TABLE
@@ -84,11 +98,15 @@ CREATE TABLE
     name VARCHAR(50) NOT NULL CHECK (name GLOB '[a-zA-Z0-9-."'',/ ]*'),
     type TEXT NOT NULL CHECK (type IN ('Cardio', 'Strength')),
     purchase_date DATE NOT NULL,
-    last_maintenance_date DATE NOT NULL,
-    next_maintenance_date DATE NOT NULL,
+    last_maintenance_date DATE NOT NULL CHECK (
+      DATE(last_maintenance_date) = last_maintenance_date
+    ),
+    next_maintenance_date DATE NOT NULL CHECK (
+      DATE(next_maintenance_date) = next_maintenance_date
+      AND next_maintenance_date > last_maintenance_date
+    ),
     location_id INTEGER,
-    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE
-    SET NULL
+    FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE SET NULL
   );
 
 CREATE TABLE
@@ -149,6 +167,7 @@ CREATE TABLE
     attendance_status TEXT NOT NULL CHECK (
       attendance_status IN ('Registered', 'Attended', 'Unattended')
     ),
+    -- Delete attendance entries if a member or class is deleted
     FOREIGN KEY (schedule_id) REFERENCES class_schedule(schedule_id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
   );
@@ -170,6 +189,7 @@ CREATE TABLE
     payment_type TEXT NOT NULL CHECK (
       payment_type IN ('Monthly membership fee', 'Day pass')
     ),
+    -- Do NOT delete payments if a member is deleted
     FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE RESTRICT
   );
 
